@@ -51,7 +51,7 @@ $ docker build .
 > start server
 
 ```bash
-$ docker-compose up
+$ docker-compose.yaml up
 ```
 
 > other commands...
