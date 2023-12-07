@@ -68,6 +68,7 @@ docker-compose down # stop server
 docker-compose run --rm app sh -c "python manage.py createsuperuser"
 docker-compose -f docker-compose-deploy.yml down # stop server
 docker-compose -f docker-compose-deploy.yml up # start deploy server on server machine
+pytest -v --cov=main --cov-report=html  
 ```
 
 Visit `http://localhost:8000` in your browser. The app should be up & running.

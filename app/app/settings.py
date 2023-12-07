@@ -45,7 +45,8 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'drf_spectacular',
     'core',
-    'user'
+    'user',
+    "post"
 ]
 
 MIDDLEWARE = [
@@ -60,10 +61,12 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'app.urls'
 
+TEMPLATE_DIR = os.path.join(BASE_DIR, "core/templates")
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [TEMPLATE_DIR],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -126,6 +129,23 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
 STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+if not DEBUG:
+    # STATIC_URL = '/static/static/'
+    # MEDIA_URL = '/static/media/'
+    #
+    # MEDIA_ROOT = '/vol/web/media'
+    # STATIC_ROOT = '/vol/web/static'
+    pass
+
+MEDIA_ROOT = os.path.join(BASE_DIR, 'core/static')
+MEDIA_URL = 'core/static/'
+
+# Extra places for collect-static to find static files.
+STATICFILES_DIRS = (
+    os.path.join(BASE_DIR, 'core/static'),
+)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
