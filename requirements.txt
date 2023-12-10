@@ -1,0 +1,7 @@
+Django>=3.2.4,<3.3
+djangorestframework>=3.12.4,<3.13
+psycopg2>=2.9.9,<3.0
+drf-spectacular>=0.15.1,<0.16
+python-dotenv==1.0.0
+Pillow>=10.1.0,<10.2.0
+dj_database_url>=2.1.0,<2.2
