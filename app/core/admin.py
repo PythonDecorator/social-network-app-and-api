@@ -1,5 +1,5 @@
 """
-Django admin customization.
+Django admin ui customization.
 """
 
 from django.contrib import admin
