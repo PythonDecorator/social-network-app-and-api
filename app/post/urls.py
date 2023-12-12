@@ -12,6 +12,8 @@ from post import views  # noqa
 
 router = DefaultRouter()
 router.register('posts', views.PostViewSet)
+router.register('tags', views.TagViewSet)
+router.register('hashtags', views.HashTagViewSet)
 
 app_name = 'post'
 

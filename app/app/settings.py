@@ -128,19 +128,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_URL = '/static/static/'
+MEDIA_URL = '/static/media/'
 
-if not DEBUG:
-    # STATIC_URL = '/static/static/'
-    # MEDIA_URL = '/static/media/'
-    #
-    # MEDIA_ROOT = '/vol/web/media'
-    # STATIC_ROOT = '/vol/web/static'
-    pass
+STATIC_ROOT = '/vol/web/static'
+MEDIA_ROOT = '/vol/web/media'
 
-MEDIA_ROOT = os.path.join(BASE_DIR, 'core/static')
-MEDIA_URL = 'core/static/'
 
 # Extra places for collect-static to find static files.
 STATICFILES_DIRS = (

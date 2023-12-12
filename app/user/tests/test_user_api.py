@@ -13,6 +13,13 @@ CREATE_USER_URL = reverse('user:create')
 TOKEN_URL = reverse('user:token')
 ME_URL = reverse('user:me')
 
+PAYLOAD = {'first_name': "Test",
+           'last_name': "Name",
+           'email': 'test@example.com',
+           'password': "testpass123",
+           'username': 'username',
+           }
+
 
 def create_user(**params):
     """Create and return a new user."""
@@ -27,89 +34,67 @@ class PublicUserApiTests(TestCase):
 
     def test_create_user_success(self):
         """Test creating a user is successful."""
-        payload = {
-            'email': 'test@example.com',
-            'password': "testpass123",
-            'fullname': "Test Name",
-        }
-        res = self.client.post(CREATE_USER_URL, payload)
+        res = self.client.post(CREATE_USER_URL, PAYLOAD)
 
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-        user = get_user_model().objects.get(email=payload['email'])
-        self.assertTrue(user.check_password(payload['password']))
+        user = get_user_model().objects.get(email=PAYLOAD['email'])
+        self.assertTrue(user.check_password(PAYLOAD['password']))
         self.assertNotIn('password', res.data)
 
     def test_user_with_email_exist_error(self):
         """Test error returned if user with email exists."""
-        payload = {
-            'email': 'test@example.com',
-            'password': "testpass123",
-            'fullname': "Test Name",
-        }
-        create_user(**payload)
-        res = self.client.post(CREATE_USER_URL, payload)
+        create_user(**PAYLOAD)
+        res = self.client.post(CREATE_USER_URL, PAYLOAD)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
+    #
     def test_password_too_short_error(self):
         """Test an error is returned if password less than 5 chars."""
-        payload = {
-            'email': 'test@example.com',
-            'password': "ph",
-            'fullname': "Test Name",
-        }
-        res = self.client.post(CREATE_USER_URL, payload)
+        PAYLOAD["password"] = "ph"
+        res = self.client.post(CREATE_USER_URL, PAYLOAD)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         user_exists = get_user_model().objects.filter(
-            email=payload['email']).exists()
+            email=PAYLOAD['email']).exists()
         self.assertFalse(user_exists)
 
     def test_create_token_for_user(self):
         """Test generates token for valid credentials."""
-        user_details = {
-            'fullname': "Test Name",
-            'email': 'test@example.com',
-            'password': "test-user-password123",
-        }
-
-        create_user(**user_details)
-
-        payload = {
-            'email': user_details['email'],
-            'password': user_details['password'],
-        }
-        res = self.client.post(TOKEN_URL, payload)
+        create_user(**PAYLOAD)
+        res = self.client.post(TOKEN_URL, PAYLOAD)
 
         self.assertIn('token', res.data)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
     def test_create_token_email_not_found(self):
         """Test error returned if user not found for given email."""
-
-        payload = {'email': 'test@example.com', 'password': 'pass123'}
-        res = self.client.post(TOKEN_URL, payload)
+        res = self.client.post(TOKEN_URL, PAYLOAD)
 
         self.assertNotIn('token', res.data)
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_create_token_bad_credentials(self):
         """Test returns error if credentials invalid."""
-        create_user(email='test@example.com', password='good_pass', fullname='bad name')
+        create_user(**PAYLOAD)
+        PAYLOAD["email"] = "wrong"
 
-        payload = {'email': 'test@example.com', 'fullname': 'bad name', 'password': 'bad_pass'}
-        res = self.client.post(TOKEN_URL, payload)
+        res = self.client.post(TOKEN_URL, PAYLOAD)
 
         self.assertNotIn('token', res.data)
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+        PAYLOAD["email"] = 'test@example.com'
 
     def test_create_token_blank_password(self):
         """Test posting a blank password returns error"""
-        payload = {'email': 'test@example.com', 'password': ''}
-        res = self.client.post(TOKEN_URL, payload)
+        PAYLOAD["password"] = ''
+        res = self.client.post(TOKEN_URL, PAYLOAD)
 
         self.assertNotIn('token', res.data)
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+        PAYLOAD["password"] = "testpass123"
 
     def test_retrieve_user_unauthorized(self):
         """Test authentication is required for users."""
@@ -122,11 +107,7 @@ class PrivateUserApiTests(TestCase):
     """Test API request that require authentication."""
 
     def setUp(self):
-        self.user = create_user(
-            email='test@example.com',
-            password='testpass123',
-            fullname='Test Name',
-        )
+        self.user = create_user(**PAYLOAD)
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
@@ -135,10 +116,12 @@ class PrivateUserApiTests(TestCase):
         res = self.client.get(ME_URL)
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(res.data, {
-            'fullname': self.user.fullname,
-            'email': self.user.email,
-        })
+        self.assertNotIn("password", res.data)
+        self.assertEqual(res.data, {'first_name': self.user.first_name,
+                                    'last_name': self.user.last_name,
+                                    'email': self.user.email,
+                                    'username': self.user.username,
+                                    })
 
     def test_post_me_not_allowed(self):
         """Test POST is not allowed for the ME endpoint."""
@@ -148,11 +131,12 @@ class PrivateUserApiTests(TestCase):
 
     def test_update_user_profile(self):
         """Test updating the user profile for the authenticated user."""
-        payload = {'fullname': 'updated name', 'password': 'newpassword123'}
+        PAYLOAD["first_name"] = "New"
 
-        res = self.client.patch(ME_URL, payload)
+        res = self.client.patch(ME_URL, PAYLOAD)
 
         self.user.refresh_from_db()
-        self.assertEqual(self.user.fullname, payload['fullname'])
-        self.assertTrue(self.user.check_password(payload['password']))
+        self.assertEqual(self.user.first_name, "New")
+        self.assertEqual(self.user.username, PAYLOAD['username'])
+        self.assertTrue(self.user.check_password(PAYLOAD['password']))
         self.assertEqual(res.status_code, status.HTTP_200_OK)

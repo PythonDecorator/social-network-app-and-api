@@ -6,17 +6,34 @@ import os
 
 from PIL import Image  # noqa
 
-from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from core.models import Post  # noqa
+from core.models import User, Post, HashTag  # noqa
 from post.serializers import PostSerializer  # noqa
+from core.tests.test_admin import create_user  # noqa
 
 POST_URL = reverse('post:post-list')
+
+PAYLOAD = {
+    'title': 'Sample post title',
+    'body': 'Sample description',
+}
+
+PAYLOAD_HASHTAGS = {
+    'title': 'Sample post title',
+    'body': 'Sample description',
+    "hashtags": [{"name": "#new"}, {"name": "#hello"}]
+}
+
+PAYLOAD_TAGS = {
+    'title': 'Sample post title',
+    'body': 'Sample description',
+    "tags": [{"somebody": "@user"}, {"somebody": "@user2"}]
+}
 
 
 def detail_url(post_id):
@@ -31,19 +48,10 @@ def image_upload_url(post_id):
 
 def create_post(user, **params):
     """Create and return a sample post."""
-    defaults = {
-        'title': 'Sample post title',
-        'body': 'Sample description',
-    }
-    defaults.update(params)
+    PAYLOAD.update(params)
+    post = Post.objects.create(user=user, **PAYLOAD)
 
-    post = Post.objects.create(user=user, **defaults)
     return post
-
-
-def create_user(**params):
-    """Create and return a new user."""
-    return get_user_model().objects.create_user(**params)
 
 
 class PublicPostAPITests(TestCase):
@@ -64,7 +72,7 @@ class PrivatePostApiTests(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.user = create_user(email='user@example.com', fullname="Test Name", password='test123')
+        self.user = create_user()
         self.client.force_authenticate(self.user)
 
     def test_retrieve_posts(self):
@@ -81,7 +89,7 @@ class PrivatePostApiTests(TestCase):
 
     def test_post_list_limited_to_user(self):
         """Test list of posts is limited to authenticated user."""
-        other_user = create_user(email='other@example.com', fullname="test", password='test123')
+        other_user = create_user(email='other@example.com', username="user2")
         create_post(user=other_user)
         create_post(user=self.user)
 
@@ -104,65 +112,49 @@ class PrivatePostApiTests(TestCase):
 
     def test_create_post(self):
         """Test creating a post."""
-        payload = {
-            'title': 'Sample post',
-            'body': "New body",
-        }
-        res = self.client.post(POST_URL, payload)
+        res = self.client.post(POST_URL, PAYLOAD)
 
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
         post = Post.objects.get(id=res.data['id'])
-        for k, v in payload.items():
+        for k, v in PAYLOAD.items():
             self.assertEqual(getattr(post, k), v)
 
         self.assertEqual(post.user, self.user)
 
     def test_partial_update(self):
         """Test partial update of a post."""
-        post = create_post(
-            user=self.user,
-            title='Sample title',
-            body="Boby of the post",
-        )
+        post = create_post(user=self.user)
 
-        payload = {'title': 'New title'}
+        update = {'title': 'New title'}
         url = detail_url(post.id)
-        res = self.client.patch(url, payload)
+        res = self.client.patch(url, update)
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         post.refresh_from_db()
-        self.assertEqual(post.title, payload['title'])
+        self.assertEqual(post.title, update['title'])
         self.assertEqual(post.user, self.user)
 
     def test_full_update(self):
         """Test full update of post."""
-        post = create_post(
-            user=self.user,
-            title='Sample title',
-            body='Sample description.',
-        )
+        post = create_post(user=self.user)
 
-        payload = {
-            'title': 'New post title',
-            'body': 'New post description',
-        }
         url = detail_url(post.id)
-        res = self.client.put(url, payload)
+        res = self.client.put(url, PAYLOAD)
 
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         post.refresh_from_db()
-        for k, v in payload.items():
+        for k, v in PAYLOAD.items():
             self.assertEqual(getattr(post, k), v)
         self.assertEqual(post.user, self.user)
 
     def test_update_user_returns_error(self):
         """Test changing the post user results in an error."""
-        new_user = create_user(email='user2@example.com', fullname="Test", password='test123')
+        new_user = create_user(email='user3@example.com', username="user3")
         post = create_post(user=self.user)
 
-        payload = {'user': new_user.id}
+        update = {'user': new_user.id}
         url = detail_url(post.id)
-        self.client.patch(url, payload)
+        self.client.patch(url, update)
 
         post.refresh_from_db()
         self.assertEqual(post.user, self.user)
@@ -179,7 +171,7 @@ class PrivatePostApiTests(TestCase):
 
     def test_post_other_users_post_error(self):
         """Test trying to delete another users post gives error."""
-        new_user = create_user(email='user2@example.com', fullname="Test", password='test123')
+        new_user = create_user(email='user2@example.com', username="username3")
         post = create_post(user=new_user)
 
         url = detail_url(post.id)
@@ -188,18 +180,145 @@ class PrivatePostApiTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
         self.assertTrue(Post.objects.filter(id=post.id).exists())
 
+    def test_create_post_with_new_hashtags(self):
+        """Test creating a post with new hashtags."""
+
+        res = self.client.post(POST_URL, PAYLOAD_HASHTAGS, format='json')
+
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        posts = Post.objects.filter(user=self.user)
+        self.assertEqual(posts.count(), 1)
+        post = posts[0]
+        self.assertEqual(post.hashtags.count(), 2)
+        for hashtag in PAYLOAD_HASHTAGS['hashtags']:
+            exists = post.hashtags.filter(
+                name=hashtag['name'],
+                user=self.user,
+            ).exists()
+            self.assertTrue(exists)
+
+    def test_create_post_with_existing_hashtags(self):
+        """Test creating a post with existing tag."""
+        hashtag_indian = HashTag.objects.create(user=self.user, name='#Indian')
+        PAYLOAD_HASHTAGS["hashtags"] = [{'name': '#Indian'}, {'name': '#Breakfast'}]
+
+        res = self.client.post(POST_URL, PAYLOAD_HASHTAGS, format='json')
+
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        posts = Post.objects.filter(user=self.user)
+
+        self.assertEqual(posts.count(), 1)
+        post = posts[0]
+        self.assertEqual(post.hashtags.count(), 2)
+        self.assertIn(hashtag_indian, post.hashtags.all())
+        for hashtag in PAYLOAD_HASHTAGS['hashtags']:
+            exists = post.hashtags.filter(
+
+                name=hashtag['name'],
+                user=self.user,
+            ).exists()
+            self.assertTrue(exists)
+
+    def test_create_hashtag_on_update(self):
+        """Test create hashtag when updating a post."""
+        post = create_post(user=self.user)
+
+        PAYLOAD_HASHTAGS["hashtags"] = [{'name': '#Lunch'}]
+        url = detail_url(post.id)
+        res = self.client.patch(url, PAYLOAD_HASHTAGS, format='json')
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        new_hashtag = HashTag.objects.get(user=self.user, name='#Lunch')
+        self.assertIn(new_hashtag, post.hashtags.all())
+
+    def test_update_post_assign_hashtag(self):
+        """Test assigning an existing tag when updating a post."""
+        hashtag_breakfast = HashTag.objects.create(user=self.user, name='#Breakfast')
+        post = create_post(user=self.user)
+        post.hashtags.add(hashtag_breakfast)
+
+        hashtag_lunch = HashTag.objects.create(user=self.user, name='#Lunch')
+        PAYLOAD_HASHTAGS["hashtags"] = [{'name': '#Lunch'}]
+        url = detail_url(post.id)
+        res = self.client.patch(url, PAYLOAD_HASHTAGS, format='json')
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn(hashtag_lunch, post.hashtags.all())
+        self.assertNotIn(hashtag_breakfast, post.hashtags.all())
+
+    def test_clear_post_hashtags(self):
+        """Test clearing a post hashtags."""
+        hashtag = HashTag.objects.create(user=self.user, name='#Dessert')
+        post = create_post(user=self.user)
+        post.hashtags.add(hashtag)
+
+        PAYLOAD_HASHTAGS["hashtags"] = []
+        url = detail_url(post.id)
+        res = self.client.patch(url, PAYLOAD_HASHTAGS, format='json')
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(post.hashtags.count(), 0)
+
+    def test_create_post_with_new_tags(self):
+        """Test creating a post with new tags."""
+        create_user(email='user2@example.com', username="user2")
+        PAYLOAD_TAGS["tags"] = [{'somebody': '@username'}, {'somebody': '@user2'}]
+
+        res = self.client.post(POST_URL, PAYLOAD_TAGS, format='json')
+
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        posts = Post.objects.filter(user=self.user)
+        self.assertEqual(posts.count(), 1)
+        post = posts[0]
+        self.assertEqual(post.tags.count(), 2)
+        for tag in PAYLOAD_TAGS['tags']:
+            exists = post.tags.filter(
+                somebody=tag['somebody'][1:],
+                user=self.user
+            ).exists()
+            self.assertTrue(exists)
+
+    def test_only_tags_with_valid_username_are_saved(self):
+        """Test that only tags with valid usernames are saved."""
+        create_user(email='user2@example.com', username="user2")
+        create_user(email='user3@example.com', username="user3")
+
+        PAYLOAD_TAGS["tags"] = [{'somebody': '@username'}, {'somebody': '@user2'},
+                                {'somebody': '@user3'}, {'somebody': '@user4'}]
+
+        res = self.client.post(POST_URL, PAYLOAD_TAGS, format='json')
+
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        posts = Post.objects.filter(user=self.user)
+        self.assertEqual(posts.count(), 1)
+        post = posts[0]
+        self.assertEqual(post.tags.count(), 3)
+
+    def test_tags_from_post_body_with_valid_username_saved(self):
+        """Test that tags from post body with valid usernames are saved."""
+        create_user(email='user2@example.com', username="user2")
+        create_user(email='user3@example.com', username="user3")
+
+        PAYLOAD_TAGS["tags"] = [{'somebody': '@username'}, {'somebody': '@user3'}]
+        PAYLOAD_TAGS["body"] = "The body @user2"
+
+        res = self.client.post(POST_URL, PAYLOAD_TAGS, format='json')
+
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        posts = Post.objects.filter(user=self.user)
+        self.assertEqual(posts.count(), 1)
+        post = posts[0]
+        self.assertEqual(post.tags.count(), 3)
+
 
 class ImageUploadTests(TestCase):
     """Tests for the image upload API."""
 
     def setUp(self):
         self.client = APIClient()
-        self.user = get_user_model().objects.create_user(
-            'user@example.com',
-            "fullname",
-            'password123',
-        )
+        self.user = create_user()
         self.client.force_authenticate(self.user)
+
         self.post = create_post(user=self.user)
 
     def tearDown(self):

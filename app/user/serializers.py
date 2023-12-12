@@ -1,7 +1,6 @@
 """
 Serializers for the user API View.
 """
-
 from django.contrib.auth import (
     get_user_model,
     authenticate,
@@ -15,9 +14,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = get_user_model()
-        fields = ["email", "password", "fullname"]
-        extra_kwargs = {"password": {"write_only": True,
-                                     "min_length": 5}
+        fields = ["email", "password", "first_name", "last_name", "username"]
+        extra_kwargs = {"password": {"write_only": True, "min_length": 5}
                         }
 
     def create(self, validated_data):
@@ -38,6 +36,9 @@ class UserSerializer(serializers.ModelSerializer):
 
 class AuthTokenSerializer(serializers.Serializer):
     """Serializer for the user auth token."""
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    username = serializers.CharField()
     email = serializers.EmailField()
     password = serializers.CharField(
         style={'input_type': 'password'},
@@ -47,11 +48,17 @@ class AuthTokenSerializer(serializers.Serializer):
     def validate(self, attrs):
         """Validate and authenticate the user."""
         email = attrs.get('email')
+        username = attrs.get('username')
         password = attrs.get('password')
+        first_name = attrs.get('first_name')
+        last_name = attrs.get('last_name')
         user = authenticate(
             request=self.context.get('request'),
-            username=email,
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
             password=password,
+            username=username
         )
 
         if not user:
