@@ -4,7 +4,9 @@ Database Models
 
 import uuid
 import os
+from PIL import Image  # noqa
 
+from django_cleanup import cleanup
 from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import (
@@ -13,6 +15,7 @@ from django.contrib.auth.models import (
     PermissionsMixin,
 )
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 
 def recipe_image_file_path(instance, filename):
@@ -79,21 +82,43 @@ class User(AbstractBaseUser, PermissionsMixin):
         return f"{self.first_name} {self.last_name}"
 
 
+@cleanup.select
 class Post(models.Model):
     """Post object."""
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    title = models.CharField(max_length=255)
-    body = models.TextField(max_length=2000)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="posts")
+    title = models.CharField(max_length=100)
+    body = models.TextField(max_length=500)
     img = models.ImageField(null=True, upload_to=recipe_image_file_path)
+    likes_count = models.IntegerField(default=0)
 
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(default=timezone.now)
 
-    hashtags = models.ManyToManyField('HashTag')
-    tags = models.ManyToManyField('Tag')
+    hashtags = models.ManyToManyField('HashTag', blank=True)
+    tags = models.ManyToManyField('Tag', blank=True)
 
     def __str__(self):
         return self.title
+
+    @property
+    def username(self):
+        return self.user.username  # noqa
+
+    def save(self, *args, **kwargs):
+        """Save method"""
+
+        super().save()
+
+        if self.img:
+            try:
+                saved_img = Image.open(self.img.path)
+            except FileNotFoundError:
+                pass
+            else:
+                if saved_img.height > 300 or saved_img.width > 300:
+                    new_img = (300, 300)
+                    saved_img.thumbnail(new_img)
+                    saved_img.save(self.img.path)
 
 
 class HashTag(models.Model):
@@ -114,3 +139,44 @@ class Tag(models.Model):
 
     def __str__(self):
         return self.somebody
+
+
+class Follower(models.Model):
+    """Followers model."""
+    leader = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                               related_name="following")
+    follower = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                                 related_name="followers")
+
+    created_at = models.DateTimeField(default=timezone.now)
+
+
+class Comment(models.Model):
+    """Model for comments."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="comments")
+    post = models.ForeignKey("Post", on_delete=models.CASCADE, related_name="comments")
+    body = models.CharField(max_length=255)
+
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ('created_at',)
+
+    def __str__(self):
+        return self.body
+
+
+class Like(models.Model):
+    """Model for likes."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    post = models.ForeignKey("Post", on_delete=models.CASCADE, blank=True, null=True,
+                             related_name="likes")
+    comment = models.ForeignKey("Comment", on_delete=models.CASCADE, blank=True, null=True,
+                                related_name="likes")
+
+    def clean(self):
+        if not self.post and not self.comment:
+            raise ValidationError('You must provide either comment_id or post_id.')
+        if self.post and self.comment:
+            raise ValidationError('You cannot provide comment_id and post_id.')

@@ -29,7 +29,7 @@ if not SECRET_KEY:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(int(os.environ.get('DEBUG', 1)))
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*'] if DEBUG else []
 
 # Application definition
 
@@ -46,7 +46,8 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'core',
     'user',
-    "post"
+    "post",
+    'django_cleanup.apps.CleanupConfig',
 ]
 
 MIDDLEWARE = [
@@ -134,7 +135,6 @@ MEDIA_URL = '/static/media/'
 STATIC_ROOT = '/vol/web/static'
 MEDIA_ROOT = '/vol/web/media'
 
-
 # Extra places for collect-static to find static files.
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'core/static'),
@@ -154,3 +154,6 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True,
 }
+
+LOGIN_URL = "user:login"
+LOGIN_REDIRECT_URL = "post:index"
