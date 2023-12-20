@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+
+{% load static %}
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+
+<a href="{% url 'post:create' %}">
+    <button>CREATE POST</button>
+</a>
+<a href="{% url 'user:profile' username=request.user %}">
+    <button>PROFILE</button>
+</a>
+<a href="{% url 'user:logout' %}">
+    <button>LOGOUT</button>
+</a>
+
+<h1>Feed Home Page.</h1>
+
+{% for post in posts %}
+<div class="row">
+    <div class="col-md-6">
+        {{ post.title }}
+        <a href="{% url 'post:update' pk=post.pk %}">
+            <button>UPDATE POST</button>
+        </a>
+        <a href="{% url 'post:delete' pk=post.pk %}">
+            <button>DELETE POST</button>
+        </a>
+    </div>
+    {% if post.id in liked %}
+    <img src="{% static 'default_image/liked.png'%}" width="30" height="30" alt="like" id="{{ post.id }}"
+         class="likeBtn img_{{ post.id }}">
+    {% else %}
+    <img src="{% static 'default_image/disliked.png'%}" width="30" height="30" alt="like" id="{{ post.id }}"
+         class="likeBtn img_{{ post.id }}">
+    {% endif  %}
+
+    <div id="likeCount_{{ post.id }}">Likes: {{ post.likes_count }}</div>
+</div>
+<hr>
+{% endfor %}
+
+</body>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+<!--Likes jQ-->
+<script>
+window.CSRF_TOKEN ="{{ csrf_token }}"
+$(document).ready(function() {
+    $('.likeBtn').on('click', function() {
+        var post_id = this.id
+        var oldImage = $(`.img_${post_id}`).attr('src')
+
+        var liked = '{% static 'default_image/liked.png' %}';
+        var disliked = '{% static 'default_image/disliked.png' %}';
+
+        console.log(oldImage)
+
+        $.ajax({
+            type: 'POST',
+            url: '{% url "post:like-post" %}',
+            data:{
+                post_id: post_id,
+                csrfmiddlewaretoken:window.CSRF_TOKEN
+                },
+            beforeSend: function(xhr) {
+                  if (oldImage == liked) {
+                    $(`.img_${post_id}`).attr('src', disliked);
+                } else {
+                    $(`.img_${post_id}`).attr('src', liked);
+                }
+            },
+            success: function(response) {
+                if (response.success) {
+                    $(`#likeCount_${post_id}`).text('Likes: ' + response.new_like_count);
+                } else {
+                    alert('Failed to like the post: ' + response.error);
+                }
+            },
+            error: function(xhr, status, error) {
+                alert('Error: ' + error);
+            }
+        });
+    });
+});
+
+</script>
+
+</html>

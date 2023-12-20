@@ -40,5 +40,6 @@ class UserAdmin(BaseUserAdmin):
 
 admin.site.register(models.User, UserAdmin)
 admin.site.register(models.Post)
+admin.site.register(models.Like)
 admin.site.register(models.HashTag)
 admin.site.register(models.Tag)

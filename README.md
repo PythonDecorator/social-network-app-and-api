@@ -68,7 +68,11 @@ docker-compose down # stop server
 docker-compose run --rm app sh -c "python manage.py createsuperuser"
 docker-compose -f docker-compose-deploy.yml down # stop server
 docker-compose -f docker-compose-deploy.yml up # start deploy server on server machine
-pytest -v --cov=main --cov-report=html  
+docker exec -it --user root  container_id sh    # run terminal as root user
+python manage.py test --exclude-tag=selenium    # exclude selenium test. if needed.
+docker-compose run --rm app sh -c "python manage.py test post.tests.test_post
+.PrivatePostIndexTests.test_liking_a_post_successful"   # run one test only.
+
 ```
 
 Visit `http://localhost:8000` in your browser. The app should be up & running.

@@ -1,11 +1,13 @@
 Django>=3.2.4,<3.3
+django-cleanup>=8.0.0,<8.1
 djangorestframework>=3.12.4,<3.13
 psycopg2>=2.9.9,<3.0
 drf-spectacular>=0.15.1,<0.16
 python-dotenv==1.0.0
 Pillow>=10.1.0,<10.2.0
 dj_database_url>=2.1.0,<2.2
-
+webdriver_manager>=4.0.1,<4.2
+selenium>=4.9.0,<5.0
 gunicorn>=21.2.0,<21.3
 whitenoise>=6.6.0,<6.7
 channels>=4.0.0,<4.1
