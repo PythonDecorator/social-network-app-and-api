@@ -30,7 +30,7 @@ from .forms import PostCreateForm, PostUpdateForm
 class IndexListView(LoginRequiredMixin, views.generic.ListView):
     """Home page."""
     queryset = Post.objects.all()
-    template_name = "home/index.html"
+    template_name = "home/content.html"
     context_object_name = "posts"
 
     def get_queryset(self):

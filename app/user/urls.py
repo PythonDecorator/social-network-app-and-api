@@ -24,4 +24,5 @@ urlpatterns += [
     path('profile/<str:username>/', views.ProfileView.as_view(), name='profile'),
     path('profile/<str:username>/update/', views.ProfileUpdateView.as_view(),
          name='profile-update'),
+    path('follow/user/', views.follow, name='follow'),
 ]

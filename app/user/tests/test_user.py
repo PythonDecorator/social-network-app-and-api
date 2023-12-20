@@ -177,3 +177,25 @@ class PrivateUserTests(TestCase):
         self.assertEqual(res.status_code, 404)
         self.assertNotIn(self.user.username, res)
         self.assertNotIn("new", res)
+
+    def test_following_user(self):
+        """Test that a user following another user is successful."""
+
+        user2 = create_user(username="leader", email="user2@example.com")
+
+        follow_url = reverse("user:follow")
+        initial_following_count_user1 = self.user.following.count()
+        initial_followers_count_user1 = user2.followers.count()
+
+        payload = {
+            "leader_id": user2.id
+        }
+        res = self.client.post(follow_url, payload)
+
+        self.assertEqual(res.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.following.count(), initial_following_count_user1 + 1)
+        self.assertEqual(user2.followers.count(), initial_followers_count_user1 + 1)
+
+        self.assertTrue(self.user.following.filter(leader=user2))
+        self.assertTrue(user2.followers.filter(follower=self.user))

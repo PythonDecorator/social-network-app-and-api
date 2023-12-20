@@ -1,9 +1,10 @@
 """
 Views for the Users
 """
-from django.http import Http404
+from django.contrib.auth.decorators import login_required
+from django.http import Http404, JsonResponse
 # from django.http import Http404
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from rest_framework import generics, authentication, permissions
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.settings import api_settings
@@ -17,6 +18,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy, reverse
 
 from .forms import SignUpForm, LoginForm, EditProfileForm
+from core.models import Follower  # noqa
 
 
 class RegisterUserView(SuccessMessageMixin, views.generic.CreateView):
@@ -116,6 +118,47 @@ class ProfileUpdateView(LoginRequiredMixin, views.generic.UpdateView):
 #
 #         context['form'] = form
 #         return context
+
+# @login_required
+# def follow_view(request, username):
+#
+#     followee = get_object_or_404(get_user_model(), username=username)
+#     # check if the current user is already following the user
+#     if Follower.objects.filter(follower=request.user, followee=followee).exists():
+#         # if yes, show a message that they are already following
+#         messages.info(request, f"You are already following {followee.username}.")
+#     else:
+#         # if no, create a new follow object and save it to the database
+#         follow = Follow(follower=request.user, followee=followee)
+#         follow.save()
+#         # show a message that they have successfully followed the user
+#         messages.success(request, f"You have followed {followee.username}.")
+#     # redirect to the user's profile page
+#     return redirect('profile',
+#                     username=username)  # assuming you have a url pattern named 'profile'
+#                     that takes a username as an argument
+
+@login_required
+def follow(request):
+    """Follow a user."""
+    if request.method == 'POST' and request.user.is_authenticated:
+        leader_id = request.POST.get("leader_id")
+        user_to_follow = get_object_or_404(get_user_model(), id=leader_id)
+
+        if user_to_follow == request.user:
+            return JsonResponse({'error': 'Cannot follow yourself.'}, status=400)
+
+        followed = Follower.objects.filter(follower=request.user, leader=user_to_follow).exists()
+
+        if followed:
+            return JsonResponse({'error': 'Already following this user.'}, status=400)
+
+        follower = Follower(follower=request.user, leader=user_to_follow)
+        follower.save()
+
+        return JsonResponse({'success': True, "message": f"You have followed @{user_to_follow.username}"})
+
+    return JsonResponse({}, status=400)
 
 
 # API

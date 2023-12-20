@@ -1,0 +1,36 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}AmosNet{% endblock %}
+
+<!-- Specific Page CSS goes HERE  -->
+{% block stylesheets %}
+{% endblock stylesheets %}
+
+{% block content %}
+
+<div id="content-page" class="content-page">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 row m-0 p-0">
+                {% include 'home/create.html' %}
+                {% include 'home/post.html' %}
+            </div>
+            <div class="col-lg-4">
+                {% include 'home/suggested.html' %}
+                {% include 'home/trending.html' %}
+                {% include 'home/birthdays.html' %}
+                {% include 'home/resent_post.html' %}
+            </div>
+            <div class="col-sm-12 text-center">
+                <img src="static/static/assets/images/page-img/page-load-loader.gif" alt="loader"
+                     style="height: 100px;">
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}
+
+<!-- Specific Page JS goes HERE  -->
+{% block javascripts %}
+{% endblock javascripts %}

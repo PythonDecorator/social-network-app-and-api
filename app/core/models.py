@@ -144,9 +144,9 @@ class Tag(models.Model):
 class Follower(models.Model):
     """Followers model."""
     leader = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-                               related_name="following")
+                               related_name="followers")
     follower = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-                                 related_name="followers")
+                                 related_name="following")
 
     created_at = models.DateTimeField(default=timezone.now)
 
